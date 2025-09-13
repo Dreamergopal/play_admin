@@ -24,6 +24,7 @@ const db = getDatabase(app)
 
 let gameData = {}
 let availableNumbers = []
+let autoCallInterval = null
 
 // Initialize the admin panel
 function initializeAdmin() {
@@ -316,6 +317,9 @@ async function startGame() {
       status: "running",
       calledNumbers: [],
     })
+
+    startAutoCall()
+
     alert("Game started successfully!")
   } catch (error) {
     alert("Error starting game: " + error.message)
@@ -329,6 +333,9 @@ async function endGame() {
       await update(ref(db, "game"), {
         status: "ended",
       })
+
+      stopAutoCall()
+
       alert("Game ended successfully!")
     } catch (error) {
       alert("Error ending game: " + error.message)
@@ -340,6 +347,8 @@ async function endGame() {
 async function resetGame() {
   if (confirm("Are you sure you want to reset the game? This will clear all called numbers and awards.")) {
     try {
+      stopAutoCall()
+
       await set(ref(db, "game"), {
         status: "ended",
         calledNumbers: [],
@@ -355,12 +364,47 @@ async function resetGame() {
   }
 }
 
+function startAutoCall() {
+  // Clear any existing interval first
+  stopAutoCall()
+
+  // Start calling numbers every 1.5 seconds (1500ms)
+  autoCallInterval = setInterval(() => {
+    // Only auto-call if game is still running
+    if (gameData.status === "running") {
+      const currentNumber = document.getElementById("currentNumber").textContent
+
+      // Check if there's a valid number to call
+      if (currentNumber !== "-" && currentNumber !== "All Called") {
+        callNextNumber()
+      } else {
+        // Stop auto-calling if no more numbers available
+        stopAutoCall()
+      }
+    } else {
+      // Stop auto-calling if game is no longer running
+      stopAutoCall()
+    }
+  }, 1500) // 1.5 seconds interval
+}
+
+function stopAutoCall() {
+  if (autoCallInterval) {
+    clearInterval(autoCallInterval)
+    autoCallInterval = null
+  }
+}
+
 // Call next number
 async function callNextNumber() {
   const currentNumber = document.getElementById("currentNumber").textContent
 
   if (currentNumber === "-" || currentNumber === "All Called") {
-    alert("No number to call!")
+    stopAutoCall()
+    if (!autoCallInterval) {
+      // Only show alert for manual calls
+      alert("No number to call!")
+    }
     return
   }
 
